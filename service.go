@@ -17,17 +17,43 @@ const (
 )
 
 type AreaService interface {
+	// 获得原始区域数据
 	Data() ([]AreaData, error)
 
-	AreaLevel() int
-	Areas() ([]Area, error)
-	AreaByLevel(level int) ([]Area, error)
-	AreaByName(name string) ([]Area, error)
-	AreaByCode(code int) (Area, error)
+	// 获得区域层级
+	AreaLevelNumber() int
+
+	// 获得区域层级列表
+	AreaLevels() []AreaLevel
+
+	// 从顶级层级获得区域信息
+	// withSub： 是否遍历子区域
+	Areas(withSub bool) ([]Area, error)
+
+	// 获得指定层级区域信息
+	// level：指定区域层级
+	// withSub： 是否遍历子区域
+	AreaByLevel(level AreaLevel, withSub bool) ([]Area, error)
+
+	// 获得指定区域名称的区域信息
+	// name：指定区域层级
+	// withSub： 是否遍历子区域
+	AreaByName(name string, withSub bool) ([]Area, error)
+
+	// 获得指定区域Code的区域信息
+	// code：指定区域层级
+	// withSub： 是否遍历子区域
+	AreaByCode(code AreaCode, withSub bool) (Area, error)
+
+	// 获得指定区域Code的子区域信息
+	// code：指定区域层级
+	// withSub： 是否遍历子区域
+	SubareaByCode(code AreaCode, withSub bool) ([]Area, error)
 }
 
 type defaultAreaService struct {
-	areas [][]AreaData
+	areas  [][]AreaData
+	levels []AreaLevel
 }
 
 func NewAreaService() *defaultAreaService {
@@ -45,15 +71,19 @@ func (s *defaultAreaService) Data() ([]AreaData, error) {
 	return ret, err
 }
 
-func (s *defaultAreaService) AreaLevel() int {
+func (s *defaultAreaService) AreaLevelNumber() int {
 	return len(s.areas)
 }
 
-func (s *defaultAreaService) Areas() ([]Area, error) {
-	return s.AreaByLevel(TopLevel)
+func (s *defaultAreaService) AreaLevels() []AreaLevel {
+	return s.levels
 }
 
-func (s *defaultAreaService) AreaByLevel(areaLv AreaLevel) ([]Area, error) {
+func (s *defaultAreaService) Areas(withSub bool) ([]Area, error) {
+	return s.AreaByLevel(TopLevel, withSub)
+}
+
+func (s *defaultAreaService) AreaByLevel(areaLv AreaLevel, withSub bool) ([]Area, error) {
 	level := areaLv.Int()
 	err := s.checkLevel(level)
 	if err != nil {
@@ -64,13 +94,15 @@ func (s *defaultAreaService) AreaByLevel(areaLv AreaLevel) ([]Area, error) {
 		sub := Area{
 			AreaData: s.areas[level-1][i],
 		}
-		_ = s.getChildren(&sub)
+		if withSub {
+			_ = s.getChildren(&sub, true)
+		}
 		ret[i] = sub
 	}
 	return ret, nil
 }
 
-func (s *defaultAreaService) AreaByName(name string) ([]Area, error) {
+func (s *defaultAreaService) AreaByName(name string, withSub bool) ([]Area, error) {
 	var ret []Area
 	for _, lv := range s.areas {
 		for _, ad := range lv {
@@ -78,7 +110,9 @@ func (s *defaultAreaService) AreaByName(name string) ([]Area, error) {
 				sub := Area{
 					AreaData: ad,
 				}
-				_ = s.getChildren(&sub)
+				if withSub {
+					_ = s.getChildren(&sub, true)
+				}
 				ret = append(ret, sub)
 			}
 		}
@@ -86,19 +120,21 @@ func (s *defaultAreaService) AreaByName(name string) ([]Area, error) {
 	return ret, nil
 }
 
-func (s *defaultAreaService) AreaByCode(code AreaCode) (Area, error) {
+func (s *defaultAreaService) AreaByCode(code AreaCode, withSub bool) (Area, error) {
 	for _, lv := range s.areas {
 		for _, ad := range lv {
 			if ad.Code == code {
 				sub := Area{
 					AreaData: ad,
 				}
-				_ = s.getChildren(&sub)
+				if withSub {
+					_ = s.getChildren(&sub, true)
+				}
 				return sub, nil
 			}
 		}
 	}
-	return Area{}, fmt.Errorf("Area with code %d not found. ", code)
+	return Area{}, fmt.Errorf("Area with code %v not found. ", code)
 }
 
 func (s *defaultAreaService) checkLevel(level int) error {
@@ -106,6 +142,21 @@ func (s *defaultAreaService) checkLevel(level int) error {
 		return fmt.Errorf("Level %d out of range. ", level)
 	}
 	return nil
+}
+
+func (s *defaultAreaService) SubareaByCode(code AreaCode, withSub bool) ([]Area, error) {
+	for _, lv := range s.areas {
+		for _, ad := range lv {
+			if ad.Code == code {
+				sub := Area{
+					AreaData: ad,
+				}
+				err := s.getChildren(&sub, withSub)
+				return sub.Subareas, err
+			}
+		}
+	}
+	return nil, fmt.Errorf("Area with code %v not found. ", code)
 }
 
 func (s *defaultAreaService) parse() error {
@@ -116,16 +167,17 @@ func (s *defaultAreaService) parse() error {
 	s.areas = make([][]AreaData, 0, 3)
 	for _, area := range d {
 		lv := area.Level.Int()
-		if s.AreaLevel() < lv {
+		if s.AreaLevelNumber() < lv {
 			lv := make([]AreaData, 0, 32)
 			s.areas = append(s.areas, lv)
+			s.levels = append(s.levels, area.Level)
 		}
 		s.areas[lv-1] = append(s.areas[lv-1], area)
 	}
 	return nil
 }
 
-func (s *defaultAreaService) getChildren(area *Area) error {
+func (s *defaultAreaService) getChildren(area *Area, recursion bool) error {
 	lv := area.Level.Int()
 	err := s.checkLevel(lv)
 	if err != nil {
@@ -136,7 +188,9 @@ func (s *defaultAreaService) getChildren(area *Area) error {
 			sub := Area{
 				AreaData: a,
 			}
-			_ = s.getChildren(&sub)
+			if recursion {
+				_ = s.getChildren(&sub, recursion)
+			}
 			area.Subareas = append(area.Subareas, sub)
 		}
 	}
