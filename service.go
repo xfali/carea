@@ -11,7 +11,10 @@ import (
 	"github.com/xfali/carea/static"
 )
 
-const TopLevel = 1
+const (
+	TopLevel    = AreaLevel("1")
+	TopLevelInt = 1
+)
 
 type AreaService interface {
 	Data() ([]AreaData, error)
@@ -50,7 +53,8 @@ func (s *defaultAreaService) Areas() ([]Area, error) {
 	return s.AreaByLevel(TopLevel)
 }
 
-func (s *defaultAreaService) AreaByLevel(level int) ([]Area, error) {
+func (s *defaultAreaService) AreaByLevel(areaLv AreaLevel) ([]Area, error) {
+	level := areaLv.Int()
 	err := s.checkLevel(level)
 	if err != nil {
 		return nil, err
@@ -82,7 +86,7 @@ func (s *defaultAreaService) AreaByName(name string) ([]Area, error) {
 	return ret, nil
 }
 
-func (s *defaultAreaService) AreaByCode(code int) (Area, error) {
+func (s *defaultAreaService) AreaByCode(code AreaCode) (Area, error) {
 	for _, lv := range s.areas {
 		for _, ad := range lv {
 			if ad.Code == code {
@@ -98,7 +102,7 @@ func (s *defaultAreaService) AreaByCode(code int) (Area, error) {
 }
 
 func (s *defaultAreaService) checkLevel(level int) error {
-	if level < TopLevel || level > len(s.areas) {
+	if level < TopLevelInt || level >= len(s.areas) {
 		return fmt.Errorf("Level %d out of range. ", level)
 	}
 	return nil
@@ -111,27 +115,29 @@ func (s *defaultAreaService) parse() error {
 	}
 	s.areas = make([][]AreaData, 0, 3)
 	for _, area := range d {
-		if s.AreaLevel() < area.Level {
+		lv := area.Level.Int()
+		if s.AreaLevel() < lv {
 			lv := make([]AreaData, 0, 32)
 			s.areas = append(s.areas, lv)
 		}
-		s.areas[area.Level-1] = append(s.areas[area.Level-1], area)
+		s.areas[lv-1] = append(s.areas[lv-1], area)
 	}
 	return nil
 }
 
 func (s *defaultAreaService) getChildren(area *Area) error {
-	err := s.checkLevel(area.Level)
+	lv := area.Level.Int()
+	err := s.checkLevel(lv)
 	if err != nil {
 		return err
 	}
-	for _, a := range s.areas[area.Level] {
+	for _, a := range s.areas[lv] {
 		if a.ParentCode == area.Code {
 			sub := Area{
 				AreaData: a,
 			}
-			area.Subareas = append(area.Subareas, sub)
 			_ = s.getChildren(&sub)
+			area.Subareas = append(area.Subareas, sub)
 		}
 	}
 	return nil

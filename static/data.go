@@ -1,5 +1,7 @@
 package static
 
+import "strconv"
+
 const Areas = `[
 {"code":"110000","parentCode":"0","level":"1","name":"北京市","latitude":"39.929986","longitude":"116.395645"},
 {"code":"110100","parentCode":"110000","level":"2","name":"市辖区","latitude":"","longitude":""},
@@ -3517,3 +3519,17 @@ const Areas = `[
 {"code":"810000","parentCode":"0","level":"1","name":"香港特别行政区","latitude":"22.293586","longitude":"114.186124"},
 {"code":"820000","parentCode":"0","level":"1","name":"澳门特别行政区","latitude":"22.204118","longitude":"113.557519"}
 ]`
+
+type AreaData struct {
+	Latitude   string `json:"latitude"`
+	Longitude  string `json:"longitude"`
+	Name       string `json:"name"`
+	Code       string `json:"code"`
+	ParentCode string `json:"parentCode"`
+	Level      string `json:"level"`
+}
+
+func AreaLevel(lv string) int {
+	ret, _ := strconv.ParseInt(string(lv), 0, 32)
+	return int(ret)
+}

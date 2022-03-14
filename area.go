@@ -5,13 +5,21 @@
 
 package carea
 
+import (
+	"encoding/json"
+	"strconv"
+)
+
+type AreaCode string
+type AreaLevel string
+
 type AreaData struct {
-	Latitude   float64 `json:"latitude"`
-	Longitude  float64 `json:"longitude"`
-	Name       string  `json:"name"`
-	Code       int     `json:"code"`
-	ParentCode int     `json:"parentCode"`
-	Level      int     `json:"level"`
+	Latitude   string    `json:"latitude"`
+	Longitude  string    `json:"longitude"`
+	Name       string    `json:"name"`
+	Code       AreaCode  `json:"code"`
+	ParentCode AreaCode  `json:"parentCode"`
+	Level      AreaLevel `json:"level"`
 }
 
 type Area struct {
@@ -19,3 +27,12 @@ type Area struct {
 	Subareas []Area `json:"subareas"`
 }
 
+func (a Area) String() string {
+	d, _ := json.MarshalIndent(a, "", "\t")
+	return string(d)
+}
+
+func (lv AreaLevel) Int() int {
+	ret, _ := strconv.ParseInt(string(lv), 0, 32)
+	return int(ret)
+}
