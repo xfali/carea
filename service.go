@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/xfali/carea/static"
+	"io/ioutil"
 )
 
 const (
@@ -57,12 +58,22 @@ type AreaService interface {
 }
 
 type defaultAreaService struct {
-	areas  [][]AreaData
-	levels []AreaLevel
+	autoFill bool
+	ds       DataSource
+	areas    [][]AreaData
+	levels   []AreaLevel
 }
 
-func NewAreaService() *defaultAreaService {
-	ret := &defaultAreaService{}
+type Opt func(s *defaultAreaService)
+
+func NewAreaService(opts ...Opt) *defaultAreaService {
+	ret := &defaultAreaService{
+		autoFill: false,
+		ds:       buildinDataSource,
+	}
+	for _, opt := range opts {
+		opt(ret)
+	}
 	err := ret.parse()
 	if err != nil {
 		return nil
@@ -71,9 +82,7 @@ func NewAreaService() *defaultAreaService {
 }
 
 func (s *defaultAreaService) Data() ([]AreaData, error) {
-	var ret []AreaData
-	err := json.Unmarshal([]byte(static.Areas), &ret)
-	return ret, err
+	return s.ds()
 }
 
 func (s *defaultAreaService) AreaLevelNumber() int {
@@ -165,7 +174,8 @@ func (s *defaultAreaService) SubareaByCode(code AreaCode, recursion bool) ([]Are
 }
 
 func (s *defaultAreaService) ParentAreaByCode(code AreaCode, recursion bool) (Area, error) {
-	for _, lv := range s.areas {
+	for i := len(s.areas) - 1; i >= 0; i-- {
+		lv := s.areas[i]
 		for _, ad := range lv {
 			if ad.Code == code {
 				parent := &Area{
@@ -247,4 +257,44 @@ func (s *defaultAreaService) getParent(area *Area, recursion bool) (*Area, error
 		}
 	}
 	return parent, nil
+}
+
+type defaultOption struct{}
+
+var DefaultOpt defaultOption
+
+type DataSource func() ([]AreaData, error)
+
+func buildinDataSource() ([]AreaData, error) {
+	return loadFromData([]byte(static.Areas))
+}
+
+func loadFromData(data []byte) ([]AreaData, error) {
+	var ret []AreaData
+	err := json.Unmarshal(data, &ret)
+	return ret, err
+}
+
+func (opt defaultOption) SetDataSource(ds DataSource) Opt {
+	return func(s *defaultAreaService) {
+		s.ds = ds
+	}
+}
+
+func (opt defaultOption) LoadFromFile(path string) Opt {
+	return func(s *defaultAreaService) {
+		s.ds = func() (data []AreaData, e error) {
+			d, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, err
+			}
+			return loadFromData(d)
+		}
+	}
+}
+
+func (opt defaultOption) FillWithParent() Opt {
+	return func(s *defaultAreaService) {
+		s.autoFill = true
+	}
 }
