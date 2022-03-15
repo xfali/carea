@@ -58,18 +58,16 @@ type AreaService interface {
 }
 
 type defaultAreaService struct {
-	autoFill bool
-	ds       DataSource
-	areas    [][]AreaData
-	levels   []AreaLevel
+	ds     DataSource
+	areas  [][]AreaData
+	levels []AreaLevel
 }
 
 type Opt func(s *defaultAreaService)
 
 func NewAreaService(opts ...Opt) *defaultAreaService {
 	ret := &defaultAreaService{
-		autoFill: false,
-		ds:       buildinDataSource,
+		ds: buildinDataSource,
 	}
 	for _, opt := range opts {
 		opt(ret)
@@ -79,6 +77,10 @@ func NewAreaService(opts ...Opt) *defaultAreaService {
 		return nil
 	}
 	return ret
+}
+
+func NewAreaServiceFromFile(path string) *defaultAreaService {
+	return NewAreaService(DefaultOpt.LoadFromFile(path))
 }
 
 func (s *defaultAreaService) Data() ([]AreaData, error) {
@@ -290,11 +292,5 @@ func (opt defaultOption) LoadFromFile(path string) Opt {
 			}
 			return loadFromData(d)
 		}
-	}
-}
-
-func (opt defaultOption) FillWithParent() Opt {
-	return func(s *defaultAreaService) {
-		s.autoFill = true
 	}
 }
