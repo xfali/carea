@@ -47,6 +47,16 @@ func TestAreaLevels(t *testing.T) {
 	for _, lv := range s.AreaLevels() {
 		t.Log(lv)
 	}
+
+	t.Run("lv3", func(t *testing.T) {
+		all, err := s.AreaByLevel("3", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range all {
+			t.Logf("==========\n %s \n", a.String())
+		}
+	})
 }
 
 func TestAreaCode(t *testing.T) {
@@ -70,7 +80,7 @@ func TestAreaCode(t *testing.T) {
 	t.Logf("==========\n %s \n", all.String())
 }
 
-func TestAreaForeach(t *testing.T) {
+func TestAreaSubareaByCode(t *testing.T) {
 	s := carea.NewAreaService()
 	t.Run("lv 1", func(t *testing.T) {
 		all, err := s.Areas(false)
@@ -92,7 +102,7 @@ func TestAreaForeach(t *testing.T) {
 		}
 	})
 
-	t.Run("lv 2", func(t *testing.T) {
+	t.Run("lv 1", func(t *testing.T) {
 		all, err := s.SubareaByCode("510000", false)
 		if err != nil {
 			t.Fatal(err)
@@ -102,7 +112,7 @@ func TestAreaForeach(t *testing.T) {
 		}
 	})
 
-	t.Run("lv 3", func(t *testing.T) {
+	t.Run("lv 2", func(t *testing.T) {
 		all, err := s.SubareaByCode("510100", false)
 		if err != nil {
 			t.Fatal(err)
@@ -110,6 +120,63 @@ func TestAreaForeach(t *testing.T) {
 		for _, a := range all {
 			t.Logf("==========\n %s \n", a.String())
 		}
+	})
+
+	t.Run("lv 3", func(t *testing.T) {
+		all, err := s.SubareaByCode("510181", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range all {
+			t.Logf("==========\n %s \n", a.String())
+		}
+	})
+}
+
+func TestAreaParentAreaByCode(t *testing.T) {
+	s := carea.NewAreaService()
+	t.Run("lv 1", func(t *testing.T) {
+		all, err := s.Areas(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range all {
+			t.Logf("==========\n %s \n", a.String())
+		}
+	})
+
+	t.Run("name", func(t *testing.T) {
+		all, err := s.AreaByName("四川省", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, a := range all {
+			t.Logf("==========\n %s \n", a.String())
+		}
+	})
+
+	t.Run("lv 1", func(t *testing.T) {
+		all, err := s.ParentAreaByCode("510000", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(all)
+	})
+
+	t.Run("lv 2", func(t *testing.T) {
+		all, err := s.ParentAreaByCode("510100", false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(all)
+	})
+
+	t.Run("lv 3", func(t *testing.T) {
+		all, err := s.ParentAreaByCode("510181", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Log(all)
 	})
 }
 

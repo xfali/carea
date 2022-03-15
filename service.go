@@ -41,14 +41,19 @@ type AreaService interface {
 	AreaByName(name string, withSub bool) ([]Area, error)
 
 	// 获得指定区域Code的区域信息
-	// code：指定区域层级
+	// code：指定区域Code
 	// withSub： 是否遍历子区域
 	AreaByCode(code AreaCode, withSub bool) (Area, error)
 
 	// 获得指定区域Code的子区域信息
-	// code：指定区域层级
-	// withSub： 是否遍历子区域
-	SubareaByCode(code AreaCode, withSub bool) ([]Area, error)
+	// code：指定区域Code
+	// recursion： 是否遍历所有子区域
+	SubareaByCode(code AreaCode, recursion bool) ([]Area, error)
+
+	// 获得指定区域Code的父区域信息
+	// code：指定区域Code
+	// recursion： 是否遍历所有父区域
+	ParentAreaByCode(code AreaCode, recursion bool) (Area, error)
 }
 
 type defaultAreaService struct {
@@ -138,25 +143,43 @@ func (s *defaultAreaService) AreaByCode(code AreaCode, withSub bool) (Area, erro
 }
 
 func (s *defaultAreaService) checkLevel(level int) error {
-	if level < TopLevelInt || level >= len(s.areas) {
+	if level < TopLevelInt || level > len(s.areas) {
 		return fmt.Errorf("Level %d out of range. ", level)
 	}
 	return nil
 }
 
-func (s *defaultAreaService) SubareaByCode(code AreaCode, withSub bool) ([]Area, error) {
+func (s *defaultAreaService) SubareaByCode(code AreaCode, recursion bool) ([]Area, error) {
 	for _, lv := range s.areas {
 		for _, ad := range lv {
 			if ad.Code == code {
 				sub := Area{
 					AreaData: ad,
 				}
-				err := s.getChildren(&sub, withSub)
+				err := s.getChildren(&sub, recursion)
 				return sub.Subareas, err
 			}
 		}
 	}
 	return nil, fmt.Errorf("Area with code %v not found. ", code)
+}
+
+func (s *defaultAreaService) ParentAreaByCode(code AreaCode, recursion bool) (Area, error) {
+	for _, lv := range s.areas {
+		for _, ad := range lv {
+			if ad.Code == code {
+				parent := &Area{
+					AreaData: ad,
+				}
+				p, err := s.getParent(parent, recursion)
+				if p == nil {
+					return Area{}, err
+				}
+				return *p, err
+			}
+		}
+	}
+	return Area{}, fmt.Errorf("Area with code %v not found. ", code)
 }
 
 func (s *defaultAreaService) parse() error {
@@ -183,6 +206,9 @@ func (s *defaultAreaService) getChildren(area *Area, recursion bool) error {
 	if err != nil {
 		return err
 	}
+	if lv == len(s.areas) {
+		return nil
+	}
 	for _, a := range s.areas[lv] {
 		if a.ParentCode == area.Code {
 			sub := Area{
@@ -195,4 +221,30 @@ func (s *defaultAreaService) getChildren(area *Area, recursion bool) error {
 		}
 	}
 	return nil
+}
+
+func (s *defaultAreaService) getParent(area *Area, recursion bool) (*Area, error) {
+	lv := area.Level.Int()
+	err := s.checkLevel(lv)
+	if err != nil {
+		return nil, err
+	}
+	if area.Level == TopLevel {
+		return area, nil
+	}
+	lv -= 2
+	parent := area
+	for _, a := range s.areas[lv] {
+		if a.Code == area.ParentCode {
+			parent = &Area{
+				AreaData: a,
+				Subareas: []Area{*area},
+			}
+			if recursion {
+				parent, _ = s.getParent(parent, recursion)
+			}
+			return parent, nil
+		}
+	}
+	return parent, nil
 }

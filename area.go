@@ -33,6 +33,14 @@ func (a Area) String() string {
 }
 
 func (lv AreaLevel) Int() int {
-	ret, _ := strconv.ParseInt(string(lv), 0, 32)
+	ret, _ := strconv.Atoi(string(lv))
 	return int(ret)
+}
+
+func String2AreaCode(code string) AreaCode {
+	return AreaCode(code)
+}
+
+func Int2AreaLevel(level int) AreaLevel {
+	return AreaLevel(strconv.Itoa(level))
 }
